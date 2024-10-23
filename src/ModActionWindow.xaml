@@ -1,6 +1,9 @@
-<Window x:Class="ZO.DMM.AppNF.ModActionWindow"
+<mah:MetroWindow x:Class="ZO.DMM.AppNF.ModActionWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:ZO.DMM.AppNF"
+        xmlns:mah="http://metro.mahapps.com/winfx/xaml/controls"
+        xmlns:material="http://materialdesigninxaml.net/winfx/xaml/themes"
         Title="{Binding ActionType, StringFormat=DevModManager - Mod Actions - {0}}" Height="300" Width="400">
     <Grid>
         <Grid.RowDefinitions>
@@ -32,4 +35,4 @@
         <TextBlock x:Name="ActionMessageTextBlock" Grid.Row="3" Grid.ColumnSpan="2" Text="Taking action on : " 
                    HorizontalAlignment="Center" VerticalAlignment="Center" Margin="10"/>
     </Grid>
-</Window>
+</mah:MetroWindow>

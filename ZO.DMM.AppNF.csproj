@@ -103,6 +103,9 @@
     <None Remove="installer\DMMInstaller-cache\**" />
     <Page Remove="installer\DMMInstaller-cache\**" />
   </ItemGroup>
+  <ItemGroup>
+    <None Remove="src\OauthWebBrowserAuthenticator.bak" />
+  </ItemGroup>
   <Target Name="CopyDocsFolder" AfterTargets="Build">
     <Message Text="Copying docs folder to output directory..." Importance="high" />
     <Copy SourceFiles="@(Docs)" DestinationFolder="$(OutputPath)\docs\%(RecursiveDir)" />

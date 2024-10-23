@@ -1,9 +1,10 @@
+using MahApps.Metro.Controls;
 using System.Windows;
 using System.Windows.Controls;
 
 namespace ZO.DMM.AppNF
 {
-    public partial class ModActionWindow : Window
+    public partial class ModActionWindow : MetroWindow
     {
         public string SelectedStage { get; private set; }
         private readonly ModItem _modItem;
@@ -66,7 +67,7 @@ namespace ZO.DMM.AppNF
         {
             SourceStageLabel.Visibility = Visibility.Visible;
             SourceStageComboBox.Visibility = Visibility.Visible;
-            SourceStageComboBox.ItemsSource = _modItem.AvailableStages;
+            SourceStageComboBox.ItemsSource = _stages;
             SourceStageComboBox.SelectionChanged += SourceStageComboBox_SelectionChanged;
             TargetStageLabel.SetValue(Grid.ColumnProperty, 1);
             TargetStageLabel.SetValue(Grid.ColumnSpanProperty, 1);

@@ -1,4 +1,5 @@
-﻿using System.Diagnostics;
+﻿using MahApps.Metro.Controls;
+using System.Diagnostics;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
@@ -8,7 +9,7 @@ using MessageBox = System.Windows.MessageBox;
 
 namespace ZO.DMM.AppNF
 {
-    public partial class MainWindow : Window
+    public partial class MainWindow : MetroWindow
     {
         private MainWindowViewModel _viewModel;
 
