@@ -11,9 +11,19 @@
     <PublishTrimmed>true</PublishTrimmed>
     <SelfContained>true</SelfContained>
     <DebugType>None</DebugType>
+    <DistributionDir>$(MSBuildProjectDirectory)\dist</DistributionDir>
   </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\DMM.AssetManagers\DMM.AssetManagers.csproj" />
   </ItemGroup>
+
+  <!-- A Release build must leave users with the requested runnable artifact, not
+       merely the managed DLL that MSBuild reports as the primary build output. -->
+  <Target Name="PublishStandaloneExecutable"
+          AfterTargets="Build"
+          Condition="'$(DesignTimeBuild)' != 'true' AND '$(Configuration)' == 'Release' AND '$(_IsPublishing)' != 'true'">
+    <Exec Command="dotnet publish &quot;$(MSBuildProjectFullPath)&quot; -c Release -r win-x64 --self-contained true --no-restore -p:PublishSingleFile=true -p:PublishTrimmed=true -p:DebugType=None -o &quot;$(DistributionDir)&quot;" />
+    <Message Text="Produced runnable self-contained executable: $(DistributionDir)\espesmswap.exe" Importance="high" />
+  </Target>
 </Project>
