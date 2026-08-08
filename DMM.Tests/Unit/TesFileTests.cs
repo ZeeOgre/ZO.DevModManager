@@ -6,6 +6,164 @@ namespace DMM.Tests.Unit;
 public sealed class TesFileTests
 {
     [Fact]
+    public void RecordLimits_Are_Inclusive_Maximums()
+    {
+        Assert.Equal(4095u, TesPluginConverter.SmallRecordLimit);
+        Assert.Equal(65535u, TesPluginConverter.MediumRecordLimit);
+    }
+
+    [Theory]
+    [InlineData(4095, TesMasterSize.Small)]
+    [InlineData(4096, TesMasterSize.Medium)]
+    [InlineData(65535, TesMasterSize.Medium)]
+    [InlineData(65536, TesMasterSize.Full)]
+    public void GetMinimumMasterSize_Uses_Record_Count_Boundaries(uint count, TesMasterSize expected)
+    {
+        Assert.Equal(expected, TesPluginConverter.GetMinimumMasterSize(count));
+    }
+
+    [Fact]
+    public void Convert_Allows_Larger_Master_But_Blocks_Insufficient_Master()
+    {
+        string root = CreateTempRoot();
+        try
+        {
+            string smallEsp = Path.Combine(root, "small.esp");
+            File.WriteAllBytes(smallEsp, BuildTes4Plugin(recordCount: 100));
+            var converter = new TesPluginConverter();
+
+            TesPluginConversionResult result = converter.Convert(smallEsp, TesMasterSize.Full);
+
+            Assert.Equal(TesMasterSize.Full, result.MasterSize);
+            Assert.Equal(1u, ReadFlags(result.OutputPath) & 0x601u);
+
+            string fullEsp = Path.Combine(root, "full.esp");
+            File.WriteAllBytes(fullEsp, BuildTes4Plugin(recordCount: 65536));
+            var error = Assert.Throws<InvalidOperationException>(() => converter.Convert(fullEsp, TesMasterSize.Small));
+            Assert.Contains("require a full master", error.Message);
+            Assert.False(File.Exists(Path.ChangeExtension(fullEsp, ".esm")));
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void Convert_Esm_To_Esp_Uses_Full_Master_Flags()
+    {
+        string root = CreateTempRoot();
+        try
+        {
+            string esm = Path.Combine(root, "master.esm");
+            File.WriteAllBytes(esm, BuildTes4Plugin(recordCount: 12, flags: 0x601));
+
+            TesPluginConversionResult result = new TesPluginConverter().Convert(esm);
+
+            Assert.Null(result.MasterSize);
+            Assert.Equal(1u, ReadFlags(result.OutputPath) & 0x601u);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void Convert_Esm_With_Size_Produces_Requested_Esm()
+    {
+        string root = CreateTempRoot();
+        try
+        {
+            string esm = Path.Combine(root, "master.esm");
+            File.WriteAllBytes(esm, BuildTes4Plugin(recordCount: 12, flags: 0x201));
+
+            TesPluginConversionResult result = new TesPluginConverter().Convert(esm, TesMasterSize.Medium);
+
+            Assert.Equal(esm, result.OutputPath);
+            Assert.Equal(TesMasterSize.Medium, result.MasterSize);
+            Assert.Equal(0x401u, ReadFlags(result.OutputPath) & 0x601u);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void Convert_Esm_Can_Explicitly_Produce_Full_Layout_Esp()
+    {
+        string root = CreateTempRoot();
+        try
+        {
+            string esm = Path.Combine(root, "master.esm");
+            File.WriteAllBytes(esm, BuildTes4Plugin(recordCount: 12, flags: 0x201));
+
+            TesPluginConversionResult result = new TesPluginConverter().Convert(
+                esm,
+                outputType: TesPluginOutputType.Esp);
+
+            Assert.Equal(Path.ChangeExtension(esm, ".esp"), result.OutputPath);
+            Assert.Equal(1u, ReadFlags(result.OutputPath) & 0x601u);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void Convert_Backs_Up_Existing_Output_With_Local_Timestamp()
+    {
+        string root = CreateTempRoot();
+        try
+        {
+            string esp = Path.Combine(root, "example.esp");
+            string esm = Path.Combine(root, "example.esm");
+            byte[] previousOutput = [1, 2, 3, 4];
+            File.WriteAllBytes(esp, BuildTes4Plugin(recordCount: 12));
+            File.WriteAllBytes(esm, previousOutput);
+            var localTimestamp = new DateTimeOffset(2026, 8, 8, 14, 35, 27, TimeSpan.FromHours(-4));
+
+            TesPluginConversionResult result = new TesPluginConverter(new FixedTimeProvider(localTimestamp)).Convert(esp);
+
+            string expectedBackup = $"{esm}.bak.20260808143527";
+            Assert.Equal(esm, result.OutputPath);
+            Assert.Equal(expectedBackup, result.BackupPath);
+            Assert.Equal(previousOutput, File.ReadAllBytes(expectedBackup));
+            Assert.True(File.Exists(esm));
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void Convert_In_Place_Backs_Up_Original_Esm()
+    {
+        string root = CreateTempRoot();
+        try
+        {
+            string esm = Path.Combine(root, "example.esm");
+            byte[] original = BuildTes4Plugin(recordCount: 12, flags: 0x201);
+            File.WriteAllBytes(esm, original);
+            var localTimestamp = new DateTimeOffset(2026, 8, 8, 14, 35, 27, TimeSpan.FromHours(2));
+
+            TesPluginConversionResult result = new TesPluginConverter(new FixedTimeProvider(localTimestamp))
+                .Convert(esm, TesMasterSize.Full);
+
+            Assert.Equal($"{esm}.bak.20260808143527", result.BackupPath);
+            Assert.Equal(original, File.ReadAllBytes(result.BackupPath!));
+            Assert.Equal(1u, ReadFlags(esm) & 0x601u);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
     public void Read_Extracts_Mat_Path_From_Lmsw_Refl_Blob()
     {
         string root = CreateTempRoot();
@@ -51,6 +209,39 @@ public sealed class TesFileTests
         bw.Flush();
 
         return ms.ToArray();
+    }
+
+    private static byte[] BuildTes4Plugin(uint recordCount, uint flags = 0)
+    {
+        using var ms = new MemoryStream();
+        using var bw = new BinaryWriter(ms, Encoding.ASCII, leaveOpen: true);
+        bw.Write(Encoding.ASCII.GetBytes("TES4"));
+        bw.Write(18); // HEDR subrecord header + 12-byte payload
+        bw.Write(flags);
+        bw.Write(0u); // form ID
+        bw.Write(0u); // revision
+        bw.Write((ushort)0);
+        bw.Write((ushort)0);
+        bw.Write(Encoding.ASCII.GetBytes("HEDR"));
+        bw.Write((ushort)12);
+        bw.Write(1.0f);
+        bw.Write(recordCount);
+        bw.Write(0x800u);
+        return ms.ToArray();
+    }
+
+    private static uint ReadFlags(string path)
+    {
+        byte[] bytes = File.ReadAllBytes(path);
+        return BitConverter.ToUInt32(bytes, 8);
+    }
+
+    private sealed class FixedTimeProvider(DateTimeOffset localNow) : TimeProvider
+    {
+        public override TimeZoneInfo LocalTimeZone { get; } =
+            TimeZoneInfo.CreateCustomTimeZone("Test", localNow.Offset, "Test", "Test");
+
+        public override DateTimeOffset GetUtcNow() => localNow.ToUniversalTime();
     }
 
     private static byte[] BuildBlobWithEmbeddedNulls(string token)
