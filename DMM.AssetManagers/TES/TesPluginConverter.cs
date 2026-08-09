@@ -73,6 +73,8 @@ public sealed class TesPluginConverter
         TesMasterSize? outputSize = null;
 
         uint flags = BinaryPrimitives.ReadUInt32LittleEndian(plugin.AsSpan(8, sizeof(uint)));
+        // This mask is the complete ESP conversion: ESPs are non-masters and have
+        // neither compact master-size bit. ESM output adds its required bits below.
         flags &= ~(MasterFlag | SmallMasterFlag | MediumMasterFlag);
 
         if (toEsm)
@@ -94,13 +96,6 @@ public sealed class TesPluginConverter
                 _ => 0
             };
         }
-        else
-        {
-            // The Creation Kit expects ESP files to use the full-master layout.
-            // Keep the master bit set, but leave both compact master-size bits clear.
-            flags |= MasterFlag;
-        }
-
         BinaryPrimitives.WriteUInt32LittleEndian(plugin.AsSpan(8, sizeof(uint)), flags);
         string outputPath = Path.ChangeExtension(fullInputPath, toEsp ? ".esp" : ".esm");
         string? backupPath = BackupExistingOutput(outputPath);

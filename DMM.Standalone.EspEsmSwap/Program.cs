@@ -85,7 +85,7 @@ static void PrintUsage()
 {
     Console.WriteLine("Usage: espesmswap [--small|--medium|--full|--esp] <plugin.esp|plugin.esm> [...]");
     Console.WriteLine("  ESP input: creates an ESM sized automatically from its HEDR record count.");
-    Console.WriteLine("  ESM input: creates an ESP flagged for the full-master layout.");
+    Console.WriteLine("  ESM input: creates a non-master ESP with all master-size flags cleared.");
     Console.WriteLine("  --small, --medium, --full: produce that ESM size when its record count fits.");
-    Console.WriteLine("  --esp: explicitly produce a full-layout ESP from an ESM.");
+    Console.WriteLine("  --esp: explicitly produce a non-master ESP from an ESM.");
 }

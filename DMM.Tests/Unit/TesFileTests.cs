@@ -50,7 +50,7 @@ public sealed class TesFileTests
     }
 
     [Fact]
-    public void Convert_Esm_To_Esp_Uses_Full_Master_Flags()
+    public void Convert_Esm_To_Esp_Clears_Master_And_Size_Flags()
     {
         string root = CreateTempRoot();
         try
@@ -61,7 +61,7 @@ public sealed class TesFileTests
             TesPluginConversionResult result = new TesPluginConverter().Convert(esm);
 
             Assert.Null(result.MasterSize);
-            Assert.Equal(1u, ReadFlags(result.OutputPath) & 0x601u);
+            Assert.Equal(0u, ReadFlags(result.OutputPath) & 0x601u);
         }
         finally
         {
@@ -91,7 +91,7 @@ public sealed class TesFileTests
     }
 
     [Fact]
-    public void Convert_Esm_Can_Explicitly_Produce_Full_Layout_Esp()
+    public void Convert_Esm_Can_Explicitly_Produce_Non_Master_Esp()
     {
         string root = CreateTempRoot();
         try
@@ -104,7 +104,7 @@ public sealed class TesFileTests
                 outputType: TesPluginOutputType.Esp);
 
             Assert.Equal(Path.ChangeExtension(esm, ".esp"), result.OutputPath);
-            Assert.Equal(1u, ReadFlags(result.OutputPath) & 0x601u);
+            Assert.Equal(0u, ReadFlags(result.OutputPath) & 0x601u);
         }
         finally
         {
