@@ -35,7 +35,7 @@ public sealed class TesFileTests
             TesPluginConversionResult result = converter.Convert(smallEsp, TesMasterSize.Full);
 
             Assert.Equal(TesMasterSize.Full, result.MasterSize);
-            Assert.Equal(1u, ReadFlags(result.OutputPath) & 0x601u);
+            Assert.Equal(1u, ReadFlags(result.OutputPath) & 0x501u);
 
             string fullEsp = Path.Combine(root, "full.esp");
             File.WriteAllBytes(fullEsp, BuildTes4Plugin(recordCount: 65536));
@@ -56,12 +56,12 @@ public sealed class TesFileTests
         try
         {
             string esm = Path.Combine(root, "master.esm");
-            File.WriteAllBytes(esm, BuildTes4Plugin(recordCount: 12, flags: 0x601));
+            File.WriteAllBytes(esm, BuildTes4Plugin(recordCount: 12, flags: 0x501));
 
             TesPluginConversionResult result = new TesPluginConverter().Convert(esm);
 
             Assert.Null(result.MasterSize);
-            Assert.Equal(0u, ReadFlags(result.OutputPath) & 0x601u);
+            Assert.Equal(0u, ReadFlags(result.OutputPath) & 0x501u);
         }
         finally
         {
@@ -76,13 +76,13 @@ public sealed class TesFileTests
         try
         {
             string esm = Path.Combine(root, "master.esm");
-            File.WriteAllBytes(esm, BuildTes4Plugin(recordCount: 12, flags: 0x201));
+            File.WriteAllBytes(esm, BuildTes4Plugin(recordCount: 12, flags: 0x101));
 
             TesPluginConversionResult result = new TesPluginConverter().Convert(esm, TesMasterSize.Medium);
 
             Assert.Equal(esm, result.OutputPath);
             Assert.Equal(TesMasterSize.Medium, result.MasterSize);
-            Assert.Equal(0x401u, ReadFlags(result.OutputPath) & 0x601u);
+            Assert.Equal(0x401u, ReadFlags(result.OutputPath) & 0x501u);
         }
         finally
         {
@@ -97,14 +97,40 @@ public sealed class TesFileTests
         try
         {
             string esm = Path.Combine(root, "master.esm");
-            File.WriteAllBytes(esm, BuildTes4Plugin(recordCount: 12, flags: 0x201));
+            File.WriteAllBytes(esm, BuildTes4Plugin(recordCount: 12, flags: 0x101));
 
             TesPluginConversionResult result = new TesPluginConverter().Convert(
                 esm,
                 outputType: TesPluginOutputType.Esp);
 
             Assert.Equal(Path.ChangeExtension(esm, ".esp"), result.OutputPath);
-            Assert.Equal(0u, ReadFlags(result.OutputPath) & 0x601u);
+            Assert.Equal(0u, ReadFlags(result.OutputPath) & 0x501u);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void Convert_Esm_To_Esp_Removes_Starfield_Small_Flag_And_Preserves_Incc()
+    {
+        string root = CreateTempRoot();
+        try
+        {
+            string esm = Path.Combine(root, "ck-master.esm");
+            byte[] original = BuildTes4Plugin(recordCount: 12, flags: 0x101, includeIncc: true);
+            File.WriteAllBytes(esm, original);
+
+            TesPluginConversionResult result = new TesPluginConverter().Convert(esm);
+            byte[] converted = File.ReadAllBytes(result.OutputPath);
+
+            Assert.Equal(0u, ReadFlags(result.OutputPath));
+            Assert.Equal(original.Length, converted.Length);
+            Assert.Equal(original.AsSpan(0, 8).ToArray(), converted.AsSpan(0, 8).ToArray());
+            Assert.Equal(original.AsSpan(12).ToArray(), converted.AsSpan(12).ToArray());
+            Assert.Equal("INCC", Encoding.ASCII.GetString(converted, 42, 4));
+            Assert.Equal(0u, BitConverter.ToUInt32(converted, 48));
         }
         finally
         {
@@ -146,7 +172,7 @@ public sealed class TesFileTests
         try
         {
             string esm = Path.Combine(root, "example.esm");
-            byte[] original = BuildTes4Plugin(recordCount: 12, flags: 0x201);
+            byte[] original = BuildTes4Plugin(recordCount: 12, flags: 0x101);
             File.WriteAllBytes(esm, original);
             var localTimestamp = new DateTimeOffset(2026, 8, 8, 14, 35, 27, TimeSpan.FromHours(2));
 
@@ -155,7 +181,7 @@ public sealed class TesFileTests
 
             Assert.Equal($"{esm}.bak.20260808143527", result.BackupPath);
             Assert.Equal(original, File.ReadAllBytes(result.BackupPath!));
-            Assert.Equal(1u, ReadFlags(esm) & 0x601u);
+            Assert.Equal(1u, ReadFlags(esm) & 0x501u);
         }
         finally
         {
@@ -211,12 +237,12 @@ public sealed class TesFileTests
         return ms.ToArray();
     }
 
-    private static byte[] BuildTes4Plugin(uint recordCount, uint flags = 0)
+    private static byte[] BuildTes4Plugin(uint recordCount, uint flags = 0, bool includeIncc = false)
     {
         using var ms = new MemoryStream();
         using var bw = new BinaryWriter(ms, Encoding.ASCII, leaveOpen: true);
         bw.Write(Encoding.ASCII.GetBytes("TES4"));
-        bw.Write(18); // HEDR subrecord header + 12-byte payload
+        bw.Write(includeIncc ? 28 : 18); // HEDR plus optional 10-byte INCC subrecord
         bw.Write(flags);
         bw.Write(0u); // form ID
         bw.Write(0u); // revision
@@ -227,6 +253,12 @@ public sealed class TesFileTests
         bw.Write(1.0f);
         bw.Write(recordCount);
         bw.Write(0x800u);
+        if (includeIncc)
+        {
+            bw.Write(Encoding.ASCII.GetBytes("INCC"));
+            bw.Write((ushort)4);
+            bw.Write(0u);
+        }
         return ms.ToArray();
     }
 

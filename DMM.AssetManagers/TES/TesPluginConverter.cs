@@ -34,8 +34,10 @@ public sealed class TesPluginConverter
     public const uint MediumRecordLimit = 65535;
 
     private const uint MasterFlag = 0x00000001;
-    private const uint SmallMasterFlag = 0x00000200;
+    // Starfield xEdit defines 0x100 as Small, 0x200 as Update, and 0x400 as Medium.
+    private const uint SmallMasterFlag = 0x00000100;
     private const uint MediumMasterFlag = 0x00000400;
+    private const uint EspClearedFlags = MasterFlag | SmallMasterFlag | MediumMasterFlag;
     private const int RecordHeaderSize = 24;
     private readonly TimeProvider _timeProvider;
 
@@ -75,7 +77,7 @@ public sealed class TesPluginConverter
         uint flags = BinaryPrimitives.ReadUInt32LittleEndian(plugin.AsSpan(8, sizeof(uint)));
         // This mask is the complete ESP conversion: ESPs are non-masters and have
         // neither compact master-size bit. ESM output adds its required bits below.
-        flags &= ~(MasterFlag | SmallMasterFlag | MediumMasterFlag);
+        flags &= ~EspClearedFlags;
 
         if (toEsm)
         {
